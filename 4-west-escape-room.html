@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+<title>4 West Escape Room</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a sticky lock strip of five letter slots on top, one station "chart" open at a time below. */
+:root{
+  --bg:#e9eef2; --panel:#ffffff; --ink:#14273a; --muted:#566b7d; --line:#c5d1db;
+  --accent:#0b6e6e; --accent-ink:#ffffff; --lock:#b7791f; --good:#1f7a4d; --bad:#b3372f; --soft:#dfe8ee;
+  --display:"Bricolage Grotesque","Trebuchet MS",sans-serif;
+  --body:"Atkinson Hyperlegible",Verdana,sans-serif;
+  --mono:"IBM Plex Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1b26; --panel:#182938; --ink:#e6eef4; --muted:#9db0c0; --line:#2f4557;
+  --accent:#4fc3c0; --accent-ink:#06211f; --lock:#e7b35a; --good:#6fd19f; --bad:#ff8f86; --soft:#213547; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1b26; --panel:#182938; --ink:#e6eef4; --muted:#9db0c0; --line:#2f4557;
+  --accent:#4fc3c0; --accent-ink:#06211f; --lock:#e7b35a; --good:#6fd19f; --bad:#ff8f86; --soft:#213547; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:1rem;line-height:1.5}
+.wrap{max-width:46rem;margin:0 auto;padding-inline:16px;padding-block:0 3rem;display:flex;flex-direction:column;gap:1.25rem}
+h1,h2{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:clamp(1.9rem,6vw,2.8rem);font-weight:800}
+h2{font-size:1.5rem;font-weight:600}
+p{margin:0}
+.eyebrow{font-family:var(--mono);font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lockbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:.75rem;border-bottom:2px solid var(--line);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;justify-content:space-between}
+.slots{display:flex;gap:.3rem}
+.slot{width:2rem;height:2.6rem;border:2px solid var(--lock);border-radius:6px;display:grid;place-items:center;font-family:var(--mono);font-size:1.4rem;color:var(--lock);background:var(--panel)}
+.slot.empty{border-style:dashed;color:var(--muted);font-size:.8rem}
+.timer{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--muted)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:1.25rem;display:flex;flex-direction:column;gap:1rem}
+.story{border-left:4px solid var(--accent);padding-left:.9rem;max-width:65ch}
+label{font-weight:700}
+input[type=text],select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:.55rem .6rem;width:100%;max-width:100%;min-width:0}
+button{font:inherit;cursor:pointer;border-radius:6px;border:1px solid var(--line);background:var(--soft);color:var(--ink);padding:.55rem .9rem}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--lock);outline-offset:2px}
+.nav{display:grid;grid-template-columns:repeat(8,1fr);gap:.3rem}
+.nav button{padding:.5rem .2rem;font-family:var(--mono);font-size:.9rem}
+.nav button[aria-current=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.nav button.done{border-color:var(--good);color:var(--good)}
+.nav button.done[aria-current=true]{background:var(--good);color:var(--panel)}
+.q{display:flex;flex-direction:column;gap:.4rem;padding-top:.8rem;border-top:1px solid var(--line)}
+.q .detail{color:var(--muted)}
+.seg{display:flex;gap:.4rem;flex-wrap:wrap}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+.row > *{min-width:0}
+.msg{font-weight:700}
+.msg.good{color:var(--good)} .msg.bad{color:var(--bad)}
+.clue{background:var(--soft);border-radius:8px;padding:1rem;display:flex;flex-direction:column;gap:.6rem}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:.88rem}
+th,td{text-align:left;padding:.4rem .5rem;border-bottom:1px solid var(--line)}
+.final{border:2px solid var(--lock)}
+.word{font-family:var(--mono);font-size:clamp(1.5rem,7vw,3rem);letter-spacing:.2em;color:var(--lock)}
+ol{margin:0;padding-left:1.2rem}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="lockbar">
+    <div class="slots" id="slots" aria-label="Code word letters"></div>
+    <div class="timer" id="timer">00:00</div>
+  </div>
+
+  <header class="panel" id="intro">
+    <p class="eyebrow">Psych medication review</p>
+    <h1>4 West Escape Room</h1>
+    <p class="story">You are the oncoming shift on 4 West. The day nurse left in a hurry and locked the medication handoff report in a box. She left eight clues around the unit. Each station gives you one letter of the code word. Collect all eight, then take the word to your instructor to open the lockbox.</p>
+    <ol>
+      <li>Finish the task at a station to unlock its clue question.</li>
+      <li>The first letter of each clue answer goes into the lock.</li>
+      <li>Stations can be done in any order. Checking an answer tells you how many you have right, not which ones.</li>
+    </ol>
+    <div id="startbox">
+      <label for="team">Team name</label>
+      <div class="row" style="margin-top:.4rem">
+        <input type="text" id="team" maxlength="40" placeholder="e.g. Night Shift" style="flex:1 1 12rem">
+        <button class="primary" id="start">Start shift</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="panel final" id="final" hidden></section>
+  <nav class="nav" id="nav" hidden aria-label="Stations"></nav>
+  <section class="panel" id="station" hidden></section>
+</div>
+
+<script>
+var SAFE=['Safe','Unsafe'], WHO=['Sign of NMS','Not NMS'];
+var REV=['Reversible','Irreversible'];
+var TEACH=['Understands','Needs more teaching'];
+var AED=['Valproate','Carbamazepine','Lamotrigine'];
+var ACH=['Anticholinergic effect','Not anticholinergic'];
+function say(n,a){return {label:n,type:'pick',options:TEACH,answer:a};}
+function aed(n,a){return {label:n,type:'pick',options:AED,answer:a};}
+function ach(n,a){return {label:n,type:'pick',options:ACH,answer:a};}
+var TYPES=['Acute dystonia','Akathisia','Parkinsonism','Tardive dyskinesia'];
+var TX=['Propranolol or a benzodiazepine','Valbenazine or deutetrabenazine','IM benztropine or diphenhydramine now','Oral benztropine or trihexyphenidyl'];
+function food(n,a){return {label:n,type:'pick',options:SAFE,answer:a};}
+function find(n,a){return {label:n,type:'pick',options:WHO,answer:a};}
+var STATIONS=[
+ {name:'The break room fridge',letter:'T',
+  intro:'Mr. Alvarez in room 12 takes phenelzine for depression. His family left food from home in the unit fridge. Mark each food safe or unsafe for him.',
+  qs:[food('Aged cheddar cheese',1),food('Pepperoni',1),food('Cottage cheese',0),food('Soy sauce',1),food('Apple',0),food('White rice',0),food('Milk',0),food('Draft beer',1),food('Sauerkraut',1),food('Freshly cooked chicken',0),food('Red wine',1),food('Scrambled eggs',0)],
+  clue:'What substance do the unsafe foods have in common?',
+  check:function(s){return /tyramine/.test(s);}},
+ {name:'The lab printout',letter:'A',
+  intro:'Ms. Chen in room 7 has taken clozapine for 3 months. Her morning dose is due and the lab just sent this report.',
+  table:[['Temperature','38.6 °C (101.5 °F)','36.5 to 37.5 °C'],['Client report','Sore throat 2 days, mouth sores',''],['WBC','1,900/mm³','4,500 to 11,000'],['ANC','400/mm³','1,500 to 8,000'],['Fasting glucose','96 mg/dL','70 to 99'],['Sodium','139 mEq/L','135 to 145']],
+  qs:[{label:'Morning clozapine dose',type:'pick',options:['Give it','Hold it'],answer:1},
+      {label:'What do you report to the provider? Select all that apply.',type:'multi',options:['Fasting glucose of 96 mg/dL','Fever','ANC of 400/mm³','Sodium of 139 mEq/L','Sore throat and mouth sores'],answer:[1,2,4]}],
+  clue:'What adverse effect of clozapine is this?',
+  check:function(s){return /agranulocytosis/.test(s);},
+  near:function(s){return /neutropenia/.test(s)?'Right idea. Use the other name for it, the one that starts with a different letter.':'';}},
+ {name:'The day room',letter:'P',
+  intro:'Four clients in the day room take antipsychotics. Each shows a different movement problem. Identify the EPS type for each, then decide whether it is reversible or irreversible.',
+  qs:[
+   {label:'Client A',detail:'Has taken chlorpromazine for 10 years. Lip smacking, tongue writhing, facial grimacing.',type:'pick',options:TYPES,answer:3},
+   {label:'Client A: is it reversible?',type:'pick',options:REV,answer:1},
+   {label:'Client B',detail:'Received haloperidol IM 2 hours ago. Neck twisted to one side, jaw clenched, eyes rolled upward.',type:'pick',options:TYPES,answer:0},
+   {label:'Client B: is it reversible?',type:'pick',options:REV,answer:0},
+   {label:'Client C',detail:'Has taken haloperidol for 3 weeks. Shuffling gait, hand tremor, stiff arms, mask-like face.',type:'pick',options:TYPES,answer:2},
+   {label:'Client C: is it reversible?',type:'pick',options:REV,answer:0},
+   {label:'Client D',detail:'Started fluphenazine 10 days ago. Paces nonstop and says, "I can\'t sit still."',type:'pick',options:TYPES,answer:1},
+   {label:'Client D: is it reversible?',type:'pick',options:REV,answer:0}],
+  clue:'What is the EPS type of the client with the shuffling gait?',
+  check:function(s){return /parkinson/.test(s);}},
+ {name:'The lithium clinic',letter:'E',
+  intro:'Four clients with bipolar disorder are here for lithium follow-up.',
+  list:['Client 1: level 1.0 mEq/L last month. Started ibuprofen three times a day and hydrochlorothiazide this week.','Client 2: level 0.9 mEq/L drawn 12 hours after the last dose. Fine hand tremor and mild thirst.','Client 3: level 1.8 mEq/L. Vomiting and diarrhea since yesterday, coarse tremor, slurred speech.','Client 4: level 0.8 mEq/L last month. Started a low-salt diet and is training outdoors during a heat wave.'],
+  qs:[{label:'Therapeutic range for lithium',type:'pick',options:['0.4 to 0.8 mEq/L','1.0 to 1.5 mEq/L','0.6 to 1.2 mEq/L','1.5 to 2.0 mEq/L'],answer:2},
+      {label:'Whose dose do you hold while you notify the provider?',type:'pick',options:['Client 1','Client 2','Client 3','Client 4'],answer:2},
+      {label:'Which others are at risk for toxicity? Select all that apply.',type:'multi',options:['Client 1','Client 2','Client 3','Client 4'],answer:[0,3]}],
+  clue:'NSAIDs, thiazide diuretics, dehydration and low sodium all raise lithium levels by reducing what kidney process?',
+  check:function(s){return /excret|eliminat/.test(s);}},
+ {name:'The rapid response',letter:'R',
+  intro:'A rapid response was called for Mr. Okafor, who started haloperidol 5 days ago. You suspect neuroleptic malignant syndrome. Mark each finding as a sign of NMS or not.',
+  qs:[find('Temperature of 40.2 °C (104.4 °F)',0),find('Clonus at the ankles',1),find('Lead-pipe muscle stiffness',0),find('Very high creatine kinase',0),find('Heart rate of 78',1),find('Hot, dry skin',1),find('Blood pressure swinging high and low',0),find('Lip smacking and tongue writhing',1),find('Heavy sweating',0),find('Cardiac arrhythmias',0),find('New confusion',0),find('Hyperactive reflexes',1)],
+  clue:'What is the hallmark muscle finding of neuroleptic malignant syndrome?',
+  check:function(s){return /rigid/.test(s);}},
+ {name:'The discharge teaching room',letter:'I',
+  intro:'Clients going home on an SSRI or SNRI are repeating back what they learned. Decide whether each statement shows understanding or a need for more teaching.',
+  qs:[say('"It may take 4 to 6 weeks before I feel the full effect of my sertraline."',0),
+      say('"I\'ll add St. John\'s wort to help my fluoxetine work faster."',1),
+      say('"I\'ll have my blood pressure checked regularly while I take venlafaxine."',0),
+      say('"Once I feel better, I can stop taking my paroxetine."',1),
+      say('"If I get a fever, heavy sweating and muscle twitching, I\'ll mention it at my next visit."',1),
+      say('"I\'ll call right away if I start having thoughts of hurting myself."',0),
+      say('"Sexual side effects are possible, and I should tell my provider instead of stopping the medicine."',0),
+      say('"I need at least 14 days between stopping my sertraline and starting an MAOI."',0)],
+  clue:'Fluoxetine is usually taken in the morning because it can cause what sleep problem?',
+  check:function(s){return /insomnia/.test(s);}},
+ {name:'The medication room',letter:'N',
+  intro:'Three antiepileptic mood stabilizers are on the shelf: valproate, carbamazepine and lamotrigine. Match each nursing point to the drug it fits best.',
+  qs:[aed('Dose is raised slowly over weeks. Any new rash means hold the drug and call the provider.',2),
+      aed('Monitor liver function and platelets. Report abdominal pain or jaundice.',0),
+      aed('Monitor CBC and sodium. Report fever or sore throat.',1)],
+  clue:'Valproate taken during pregnancy can cause what type of birth defect of the spine and brain? (two words, then "defect")',
+  check:function(s){return /neural/.test(s);}},
+ {name:'The assessment room',letter:'G',
+  intro:'Mrs. Tran, 68, started amitriptyline last week. Mark each finding as an anticholinergic effect of her TCA or not.',
+  qs:[ach('Dry mouth',0),ach('Urinary retention',0),ach('Diarrhea',1),ach('Blurred vision',0),ach('Pinpoint pupils',1),ach('Drooling',1),ach('Constipation',0),ach('Urinary frequency',1)],
+  clue:'Anticholinergic effects can raise the pressure inside the eye. Which eye condition calls for caution with TCAs?',
+  check:function(s){return /glaucoma/.test(s);}}
+];
+
+var KEY='west4-escape-v4';
+var state={team:'',start:0,end:0,cur:0,ans:{},passed:{},clue:{},msg:{}};
+try{var saved=JSON.parse(localStorage.getItem(KEY));if(saved&&saved.ans)state=saved;state.msg={};}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+function renderSlots(){
+  $('slots').innerHTML=STATIONS.map(function(s,i){
+    return state.clue[i]?'<div class="slot">'+s.letter+'</div>':'<div class="slot empty">'+(i+1)+'</div>';
+  }).join('');
+}
+function fmt(ms){var t=Math.max(0,Math.floor(ms/1000)),m=Math.floor(t/60),s=t%60;return (m<10?'0':'')+m+':'+(s<10?'0':'')+s;}
+function tick(){ if(state.start) $('timer').textContent=fmt((state.end||Date.now())-state.start); }
+setInterval(tick,1000);
+
+function renderNav(){
+  $('nav').innerHTML=STATIONS.map(function(s,i){
+    return '<button data-go="'+i+'" class="'+(state.clue[i]?'done':'')+'" aria-current="'+(state.cur===i)+'" aria-label="Station '+(i+1)+', '+esc(s.name)+'">'+(state.clue[i]?s.letter:(i+1))+'</button>';
+  }).join('');
+}
+function qHtml(si,qi,q){
+  var id=si+'-'+qi, v=state.ans[id], lock=state.passed[si]?' disabled':'', h='<div class="q"><label'+(q.type==='pick'&&q.options.length>2?' for="q'+id+'"':'')+'>'+esc(q.label)+'</label>';
+  if(q.detail) h+='<p class="detail">'+esc(q.detail)+'</p>';
+  if(q.type==='multi'){
+    h+='<div class="seg">'+q.options.map(function(o,oi){var on=v&&v.indexOf(oi)>-1;return '<button data-multi="'+id+'" data-o="'+oi+'" aria-pressed="'+!!on+'"'+lock+'>'+esc(o)+'</button>';}).join('')+'</div>';
+  }else if(q.options.length<=2){
+    h+='<div class="seg">'+q.options.map(function(o,oi){return '<button data-pick="'+id+'" data-o="'+oi+'" aria-pressed="'+(v===oi)+'"'+lock+'>'+esc(o)+'</button>';}).join('')+'</div>';
+  }else{
+    h+='<select id="q'+id+'" data-sel="'+id+'"'+lock+'><option value="">Choose…</option>'+q.options.map(function(o,oi){return '<option value="'+oi+'"'+(v===oi?' selected':'')+'>'+esc(o)+'</option>';}).join('')+'</select>';
+  }
+  return h+'</div>';
+}
+function renderStation(){
+  var si=state.cur,s=STATIONS[si],h='<p class="eyebrow">Station '+(si+1)+' of '+STATIONS.length+'</p><h2>'+esc(s.name)+'</h2><p>'+esc(s.intro)+'</p>';
+  if(s.table) h+='<div class="scroll"><table><tr><th>Test</th><th>Result</th><th>Reference</th></tr>'+s.table.map(function(r){return '<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1])+'</td><td>'+esc(r[2])+'</td></tr>';}).join('')+'</table></div>';
+  if(s.list) h+='<ol style="list-style:none;padding:0;display:flex;flex-direction:column;gap:.5rem">'+s.list.map(function(l){return '<li>'+esc(l)+'</li>';}).join('')+'</ol>';
+  h+=s.qs.map(function(q,qi){return qHtml(si,qi,q);}).join('');
+  var m=state.msg[si];
+  if(!state.passed[si]){
+    h+='<div class="row"><button class="primary" data-check="1">Check our work</button>'+(m?'<span class="msg bad">'+esc(m)+'</span>':'')+'</div>';
+  }else{
+    h+='<p class="msg good">Task complete.</p><div class="clue"><p class="eyebrow">Clue question</p><label for="clue">'+esc(s.clue)+'</label>';
+    if(state.clue[si]) h+='<p class="msg good">Correct. Letter '+s.letter+' is in the lock.</p>';
+    else h+='<div class="row"><input type="text" id="clue" autocomplete="off" style="flex:1 1 12rem"><button class="primary" data-clue="1">Submit</button></div>'+(m?'<p class="msg bad">'+esc(m)+'</p>':'');
+    h+='</div>';
+  }
+  $('station').innerHTML=h;
+}
+function renderFinal(){
+  var done=STATIONS.every(function(s,i){return state.clue[i];});
+  $('final').hidden=!done;
+  if(!done) return;
+  $('final').innerHTML='<p class="eyebrow">Lock code found</p><div class="word">'+STATIONS.map(function(s){return s.letter;}).join('')+'</div>'+
+    '<p><strong>'+esc(state.team||'Your team')+'</strong> finished in <strong>'+fmt(state.end-state.start)+'</strong>.</p>'+
+    '<p>Bring this screen to your instructor to open the lockbox. Be ready for the final challenge: name three psych drug classes that should never be stopped abruptly, and what happens if they are.</p>'+
+    '<div><button data-reset="1">Play again</button></div>';
+}
+function render(){
+  var on=!!state.start;
+  $('startbox').hidden=on; $('nav').hidden=!on; $('station').hidden=!on;
+  renderSlots(); tick(); renderFinal();
+  if(on){renderNav();renderStation();}
+}
+function grade(si){
+  var s=STATIONS[si],right=0,blank=0;
+  s.qs.forEach(function(q,qi){
+    var v=state.ans[si+'-'+qi];
+    if(q.type==='multi'){ var a=(v||[]).slice().sort().join(','); if(a===q.answer.join(',')) right++; }
+    else { if(v===undefined||v===null||v==='') blank++; if(v===q.answer) right++; }
+  });
+  if(right===s.qs.length){state.passed[si]=true;state.msg[si]='';}
+  else state.msg[si]=blank?('Answer every item first. '+blank+' left blank.'):(right+' of '+s.qs.length+' correct. Talk it over and try again.');
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b) return;
+  var d=b.dataset, si=state.cur;
+  if(b.id==='start'){state.team=$('team').value.trim();state.start=Date.now();}
+  else if(d.go!==undefined){state.cur=+d.go;}
+  else if(d.pick){state.ans[d.pick]=+d.o;}
+  else if(d.multi){var a=(state.ans[d.multi]||[]).slice(),o=+d.o,k=a.indexOf(o);if(k>-1)a.splice(k,1);else a.push(o);state.ans[d.multi]=a;}
+  else if(d.check){grade(si);}
+  else if(d.clue){submitClue();return;}
+  else if(d.reset){state={team:'',start:0,end:0,cur:0,ans:{},passed:{},clue:{},msg:{}};$('team').value='';}
+  else return;
+  save();render();
+});
+document.addEventListener('change',function(e){
+  var id=e.target.dataset&&e.target.dataset.sel; if(!id) return;
+  state.ans[id]=e.target.value===''?null:+e.target.value; save();
+});
+document.addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&e.target.id==='clue'){submitClue();}
+  if(e.key==='Enter'&&e.target.id==='team'){$('start').click();}
+});
+function submitClue(){
+  var si=state.cur,s=STATIONS[si],el=$('clue'); if(!el) return;
+  var v=el.value.toLowerCase().replace(/[^a-z]/g,'');
+  if(!v) return;
+  if(s.check(v)){
+    state.clue[si]=true;state.msg[si]='';
+    if(STATIONS.every(function(x,i){return state.clue[i];})) state.end=Date.now();
+  }else state.msg[si]=(s.near&&s.near(v))||'Not the answer the lock needs. Check your charts and try again.';
+  save();render();
+  if(state.end) $('final').scrollIntoView({block:'start'});
+}
+render();
+</script>
+</body>
+</html>
